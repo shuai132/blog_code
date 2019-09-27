@@ -1,81 +1,72 @@
 # Lambda和闭包(closure) 及其在C++中的实现原理
 
-大多数技术，只需要学习本质概念即可。重要的在于推理、发挥想象力！！！
-
 ## Lambda和闭包
-本章讲解lambda和闭包的基本概念，不特指某种语言下的实现。
+**lambda == 匿名函数。**
 
-### Lambda
-#### 本质
-**lambda或称lambda表达式，本质就是一个匿名函数。**
-
-#### 推论
 不论什么语言，只要支持匿名函数这样的特性，我们就说，它支持lambda（不同程度上）。
 
 为什么会有匿名这种需求呢？因为通常需要使用一简短函数时，定义过于繁琐，而且也会一定程度地污染命名空间。
 
-比如lua里有这样的表达:
+### Lambda的形式
+JavaScript:
+```js
+func(function() { console.log("I am lambda"); });
+```
+Lua:
 ```lua
 func(function() print("I am lambda") end)
 ```
-比如c++11之后能写成这样:
+C++11:
 ```cpp
 func([] { printf("I am lambda\n"); });
 ```
-比如java8之后支持这样:
+Java8:
 ```java
 func(()->{ System.out.println("I am lambda"); });
 ```
 以上，func里的东东，就是lambda了。
-golang、python、js都有类似的表达。
 
 换句话说，lambda就是匿名函数，并不是各种语言里的语法(那只是实现方式)。
 
 **写法怎么样不重要，重要的是要有想象力~**
 
 ### 闭包(closure)
-闭包或称closure，它的概念比较抽象，具体一点描述:
-> 闭包就是能够读取其他函数内部变量的函数。  
-> 在本质上，闭包是将函数内部和函数外部连接起来的桥梁。
+**闭包 == 捕获并持有了外部作用域变量的函数。**
 
-换成我认为好理解的说法就是：**闭包是一个函数对象，和普通函数不同的是，它能够捕获到外部作用域的变量，延长其生命期。**
+举个最简单的例子:
+```js
+var makeCounter = function() {
+    var count = 0;
+    var func = function() {
+        return ++count;
+    };
+    return func;
+};
 
-注意，上述的重点是，**函数对象可以捕获到外部作用域的变量**，至于如何捕获、何时捕获，可并非大家做法都一样（可参考lua和js闭包的不同）。
+var counter = makeCounter();
 
-首先我们看一个例子，请观察输出结果是什么:  
-* python  
-注意nonlocal关键字，且要python3，不熟悉python的读者可看lua版本的
-```python
-    def a():
-        x = 0
-        def b():
-            nonlocal x
-            x = x + 1
-            print(x)
-        return b
-    
-    b = a()
-    b()
-    b()
+console.log(counter());     // 1
+console.log(counter());     // 2
 ```
+func用到了父作用域的变量count，一般来说makeCounter调用后，变量count会销毁。但是由于返回的func引用到了count。
+也就是说count是func引用到的一个资源，这导致count继续存在，且生命期和func一致。这就是闭包的本质和作用。
 
-* lua
-```lua
-    local function a()
-        local x = 0;
+> 拓展: 闭包如何捕获、何时捕获变量，各种语言的做法并不相同（可参考lua和js闭包的不同、C++11的lambda），不深入讨论。
 
-        local function b()
-            x = x + 1
-            return x
-        end
-        return b
-    end
+### 区别联系
+看明白了以上论述自然不难总结：
+1. lambda == 匿名函数
+2. 闭包 == 捕获并持有了外部作用域变量的函数。
 
-    local b = a()
-    print(b())
-    print(b())
-```
+这是两个不同的概念，但是呢，常常会一起用。也就是用lambda表示闭包。
 
+
+## Lambda在C++中的实现方式
+
+以上是lambda和闭包基本概念，下面会比较深入地讲在C++中lambda的实现方式。
+以及基于这种实现方式带来的语义(捕获模式)和问题，需要读者对C++11的lambda有一定的基础。
+
+### C++版lambda计数器
 * c++
 ```cpp
 #include <iostream>
@@ -95,30 +86,17 @@ int main() {
 }
 ```
 
-没错，输出结果都是1和2。b捕获了父作用域a中的变量x（lua中称之为upvalue），这种捕获，导致x的生命期被延长。
+输出结果都是1和2。b捕获了父作用域a中的变量x，这种捕获，导致x的生命期被延长。
 
-但是对于c++来讲，其实现原理是不同于fp语言，在下一节讲解。
-
-### 区别联系
-看明白了以上论述自然不难总结：
-1. lambda == 匿名函数
-2. 闭包是用函数对象表示的
-
-所以，lambda可以表示闭包，或者说，闭包可以用lambda表示。
-这是两个不同的概念，但是呢，常常会一起说和用。
-
-
-## Lambda在C++中的实现方式
-
-下面讲在C++中lambda的实现方式，以及基于这种实现方式带来语义(捕获模式)，需要读者对C++11的lambda有一定的基础。
+但是对于c++来讲，其实现原理是不同于FP语言。
 
 ### 实现方式和特点
 对上一小节的例子有必要深入理解一下c++内部是如何做的：
 
-共同点和重点是：`x的生命周期被延长了`。
+共同点是：`x的生命周期被延长了`。
 
-值得一提的是，c++不具备延长栈变量生命周期的能力，具体讲：
-实际上，b拷贝了一份x到自己的函数对象(闭包)中。
+值得一提的是，c++并不具备延长栈变量生命周期的能力，具体讲：
+b拷贝了一份x到自己的函数对象(闭包)中。
 这么做是不得已为之，因为在语义上，lambda是作为一个语句块的，不管怎么说语句块结束后变量都要析构。
 也就是x不管怎样都要销毁的。而不像fp语言，能做到延长它的生命！
 
@@ -168,9 +146,9 @@ int main() {
     return 0;
 }
 ```
-**实际上是，你永远也不要这么认为，编译器也不会做任何优化。**
+**你永远也不要这么认为，编译器也不会做任何优化。**
 
-之所以说这很重要，是因为一旦认为它是个类似函数地址的东西，就会觉得它是个全局的东西 -- 不会被析构！
+之所以说这很重要，是因为一旦认为它是个类似函数地址的东西，就会认为它不会被析构！
 事实上，一旦离开作用域，它将立刻被析构。如果引用过这个函数，将会引用到无效地址。
 
 * 仔细思考会发现C++的函数对象，它并不是完美的闭包。但是它提供了多种捕获方式，完美地结合到了语言特性。
@@ -181,35 +159,32 @@ int main() {
 
 之所以说这很重要，是因为如果你理解成fp语言那种，请看这两个写法，结果将是不同的：
 
-* lua 结果1 2 3 4
-```lua
-local function main()
-    local function a()
-        local x = 0;
+* JavaScript: 结果 1 2 3 4
+```js
+var a = function() {
+    var x = 0;
 
-        local function b()
-            x = x + 1
-            return x
-        end
-        local function c()
-            x = x + 1
-            return x
-        end
-        return b, c
-    end
+    var b = function() {
+        return ++x;
+    }
+    var c = function() {
+        return ++x;
+    }
+    return [b, c];
+}
 
-    local b, c = a()
-    print(b())
-    print(b())
+var pair = a()
+var b = pair[0];
+var c = pair[1];
 
-    print(c())
-    print(c())
-end
+console.log(b())
+console.log(b())
 
-main()
+console.log(c())
+console.log(c())
 ```
 
-* c++
+* C++11: 结果 1 2 1 2
 ```cpp
 #include <iostream>
 
@@ -236,9 +211,9 @@ int main() {
     return 0;
 }
 ```
-结果将是1 2 1 2，懂得内部原理的话，就不难理解这种结果的原因（因为b和c各自为自己复制了一份x，各自是独立的）。
+懂得内部原理的话，就不难理解这种结果的原因（因为b和c各自为自己复制了一份x，各自是独立的）。
 
-能做到想lua那样么？毕竟，那样看上去才更符合人类的思维和直觉！
+能做到像js那样么？那看上去才更符合人类的思维和直觉！
 
 可以的，但是我们要模拟这种行为，有几种方案：
 * x改为static，并引用方式捕获
@@ -337,7 +312,7 @@ C++11引入了lambda，极大的方便了编程设计。但是要理解它的前
 * 不同语言对lambda、闭包的概念和支持  
 在不同语言，对lambda的表述和支持程度都有不同，
     * lua和js中闭包捕获upvalue的行为也不同。
-    * python中lambda只支持单条语句，大大限制了其实用性。事实上python2中的闭包对基本类型的支持也不够好，直到python3引入了nonlocal。
+    * python中lambda只支持单条语句，大大限制了其实用性。而且python2中的闭包对基本类型的支持也不够好，直到python3引入了nonlocal。
     * java8引入的lambda，不得不说比较鸡肋，尽管一定程度上也提供了一点点方便，比如配合stream。
     * C++的闭包也与FP语言大有不同。支持了齐全的捕获方式，非常实用。
 
