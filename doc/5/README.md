@@ -105,6 +105,7 @@ services:
 ```bash
 docker-compose up build
 ```
+
 将使用`rocproject/cross-aarch64-linux-gnu:gcc-7.4`镜像生成容器执行构建，生成二进制目录在`output`。
 
 模拟arm运行：
@@ -112,6 +113,7 @@ docker-compose up build
 ```bash
 docker-compose up app
 ```
+
 将使用`arm64v8/busybox:1.31.0`模拟(qemu)一个arm64设备执行。
 
 ## Links
