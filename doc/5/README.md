@@ -39,8 +39,8 @@ set(CMAKE_SYSTEM_NAME   Linux)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
 set(TOOLCHAIN_DIR       /opt/toolchain)
-set(CMAKE_C_COMPILER    ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-gcc)
-set(CMAKE_CXX_COMPILER  ${TOOLCHAIN_DIR}/bin/arm-linux-gnueabihf-g++)
+set(CMAKE_C_COMPILER    ${TOOLCHAIN_DIR}/bin/aarch64-linux-gnu-gcc)
+set(CMAKE_CXX_COMPILER  ${TOOLCHAIN_DIR}/bin/aarch64-linux-gnu-g++)
 ```
 
 修改CMakeLists.txt，在project前如下设置
